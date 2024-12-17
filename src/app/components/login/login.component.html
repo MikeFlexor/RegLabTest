@@ -1,1 +1,19 @@
-<p>login works!</p>,
+<input
+  [(ngModel)]="username"
+  pInputText
+  placeholder="Введите логин"
+  type="text"
+/>
+
+<input
+  [(ngModel)]="password"
+  placeholder="Введите пароль"
+  pInputText
+  type="text"
+/>
+
+<p-button
+  (onClick)="onLoginClick()"
+  label="Войти"
+  severity="info"
+/>
