@@ -1,3 +1,38 @@
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #ffffff;
+  align-items: center;
+  justify-content: center;
+
+  .main-container {
+    display: flex;
+    flex-direction: row;
+    width: 1200px;
+    height: 100%;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  @media screen and (max-width: 1200px) {
+    .main-container {
+      width: 100%;
+    }
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 35%;
+    height: 100%;
+    gap: 8px;
+  }
+
+  .chat {
+    display: flex;
+    flex-direction: column;
+    width: 65%;
+    height: 100%;
+  }
 }

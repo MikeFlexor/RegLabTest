@@ -1,1 +1,14 @@
-<p>main works!</p>,
+<div class="main-container">
+  <div class="sidebar">
+    <app-user-menu [user]="currentUser$ | async"></app-user-menu>
+    <app-channels-list
+      [selectedChannel]="selectedChannel$ | async"
+      [userChannels]="(currentUserChannels$ | async) || []"
+    ></app-channels-list>
+    <app-channel-users></app-channel-users>
+  </div>
+
+  <div class="chat">
+    <app-chat></app-chat>
+  </div>
+</div>

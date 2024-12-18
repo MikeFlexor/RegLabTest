@@ -1,0 +1,17 @@
+<span>{{ user ? user.username : '' }}</span>
+
+<p-button
+  (onClick)="onSettingsClick()"
+  class="icon-button"
+  icon="pi pi-cog"
+  title="Открыть настройки пользователя"
+  severity="secondary"
+/>
+
+<p-button
+  (onClick)="onLogoutClick()"
+  class="icon-button"
+  icon="pi pi-sign-out"
+  title="Выйти из системы"
+  severity="secondary"
+/>

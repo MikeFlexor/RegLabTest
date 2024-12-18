@@ -1,0 +1,19 @@
+<div class="channel-name-container">
+  <span>Каналы</span>
+
+  <p-button
+    (onClick)="onAddClick()"
+    class="icon-button"
+    icon="pi pi-plus"
+    title="Добавить новый канал"
+    severity="secondary"
+  />
+</div>
+
+<p-listbox
+  [(ngModel)]="selectedChannel"
+  [options]="userChannels"
+  [listStyle]="{'min-height': '100%'}" 
+  (ngModelChange)="onSelectedChannelChange()"
+  optionLabel="name"
+>

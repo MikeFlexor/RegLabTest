@@ -1,5 +1,6 @@
 @import 'primeng/resources/themes/lara-light-blue/theme.css';
 @import 'primeng/resources/primeng.css';
+@import "primeicons/primeicons.css";
 
 html,
 body {
@@ -8,11 +9,28 @@ body {
   padding: 0;
   margin: 0;
   overflow: hidden;
-  font-size: 14px;
+  color: #3e4857;
 }
 
 p-button {
   button {
     width: 100%;
+    height: 100%;
+  }
+
+  &.icon-button {
+    .pi {
+      font-size: 20px;
+    }
+  }
+}
+
+p-listbox {
+  width: 100%;
+  height: 100%;
+
+  .p-listbox {
+    width: 100%;
+    height: 100%;
   }
 }

@@ -1,10 +1,14 @@
 export interface DataStateModel {
   users: User[];
-  isAuthenticated: boolean;
+  currentUser: User | null;
+  channels: Channel[];
+  userChannels: UserChannel[];
+  currentUserChannels: Channel[];
+  selectedChannel: Channel | null;
 }
 
 export interface User {
-  id: number;
+  uuid: string;
   username: string;
   password: string;
   isOnline: boolean;
@@ -13,4 +17,19 @@ export interface User {
 export interface LoginData {
   username: string;
   password: string;
+}
+
+export interface Channel {
+  uuid: string;
+  name: string;
+}
+
+export interface UserChannel {
+  userUuid: string;
+  channelUuid: string;
+}
+
+export interface AddChannelData {
+  userUuid: string;
+  channelName: string;
 }

@@ -8,7 +8,7 @@ export class AuthenticationGuard implements CanActivate {
   constructor(private router: Router, private store: Store) {}
 
   canActivate() {
-    if (this.store.selectSnapshot(DataState.isAuthenticated)) {
+    if (this.store.selectSnapshot(DataState.currentUser)) {
       return true;
     }
 

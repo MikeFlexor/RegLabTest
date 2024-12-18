@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Store } from '@ngxs/store';
-import { GetUsers } from './store/actions';
+import { GetChannels, GetCurrentUser, GetUserChannels, GetUsers } from './store/actions';
 
 @Component({
   selector: 'app-root',
@@ -15,5 +15,8 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
     this.store.dispatch(new GetUsers());
+    this.store.dispatch(new GetCurrentUser());
+    this.store.dispatch(new GetChannels());
+    this.store.dispatch(new GetUserChannels());
   }
 }

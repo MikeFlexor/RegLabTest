@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { Action, Selector, State, StateContext } from '@ngxs/store';
-import { DataStateModel, LoginData, User } from "../models/models";
-import { GetUsers, Login } from "./actions";
+import { AddChannelData, Channel, DataStateModel, LoginData, User, UserChannel } from "../models/models";
+import { AddChannel, GetChannels, GetCurrentUser, GetUserChannels, GetUsers, Login, Logout } from "./actions";
 import { HttpClient } from "@angular/common/http";
 import { catchError, tap, throwError } from "rxjs";
 import { v4 as uuid } from 'uuid';
@@ -9,7 +9,11 @@ import { Router } from "@angular/router";
 
 const defaultState: DataStateModel = {
   users: [],
-  isAuthenticated: false
+  currentUser: null,
+  channels: [],
+  userChannels: [],
+  currentUserChannels: [],
+  selectedChannel: null
 };
 
 @State<DataStateModel>({
@@ -26,8 +30,18 @@ export class DataState {
   }
 
   @Selector()
-  static isAuthenticated(state: DataStateModel) {
-    return state.isAuthenticated;
+  static currentUser(state: DataStateModel) {
+    return state.currentUser;
+  }
+
+  @Selector()
+  static currentUserChannels(state: DataStateModel) {
+    return state.currentUserChannels;
+  }
+
+  @Selector()
+  static selectedChannel(state: DataStateModel) {
+    return state.selectedChannel;
   }
 
   constructor(private http: HttpClient, private router: Router) {}
@@ -48,14 +62,80 @@ export class DataState {
       );
   }
 
+  /** Получение текущего пользователя */
+  @Action(GetCurrentUser)
+  getCurrentUser(ctx: StateContext<DataStateModel>) {
+    const currentUserString = localStorage.getItem('currentUser');
+    if (currentUserString) {
+      const currentUser = JSON.parse(currentUserString) as User;
+      ctx.patchState({ currentUser });
+    } else {
+      ctx.patchState({ currentUser: null });
+    }
+
+    const currentUserChannelsString = localStorage.getItem('currentUserChannels');
+    if (currentUserChannelsString) {
+      const currentUserChannels = JSON.parse(currentUserChannelsString) as Channel[];
+      ctx.patchState({ currentUserChannels});
+    } else {
+      ctx.patchState({ currentUserChannels: [] });
+    }
+  }
+
+  /** Получение общего списка каналов */
+  @Action(GetChannels)
+  getChannels(ctx: StateContext<DataStateModel>) {
+    return this.http.get<Channel[]>(`${this.baseUrl}/channels`)
+      .pipe(
+        tap((response) => {
+          ctx.patchState({ channels: response });
+        }),
+        catchError(() => {
+          // Поскольку без бэкенда возникнет ошибка, получаем общий список каналов из локалстора
+          const channelsString = localStorage.getItem('channels');
+          if (channelsString) {
+            const channels = JSON.parse(channelsString) as Channel[];
+            ctx.patchState({ channels });
+          } else {
+            localStorage.setItem('channels', JSON.stringify([]));
+            ctx.patchState({ channels: [] });
+          }
+          return throwError(() => new Error());
+        })
+      );
+  }
+
+  /** Получение списка каналов пользователей */
+  @Action(GetUserChannels)
+  getUserChannels(ctx: StateContext<DataStateModel>) {
+    return this.http.get<UserChannel[]>(`${this.baseUrl}/userChannels`)
+      .pipe(
+        tap((response) => {
+          ctx.patchState({ userChannels: response });
+        }),
+        catchError(() => {
+          // Поскольку без бэкенда возникнет ошибка, получаем список каналов пользователей из локалстора
+          const userChannelsString = localStorage.getItem('userChannels');
+          if (userChannelsString) {
+            const userChannels = JSON.parse(userChannelsString) as UserChannel[];
+            ctx.patchState({ userChannels });
+          } else {
+            localStorage.setItem('userChannels', JSON.stringify([]));
+            ctx.patchState({ userChannels: [] });
+          }
+          return throwError(() => new Error());
+        })
+      );
+  }
+
   /** Аутентификация пользователя */
   @Action(Login)
   login(ctx: StateContext<DataStateModel>, { loginData }: Login) {
-    return this.http.post<boolean>(`${this.baseUrl}/login`, loginData)
+    return this.http.post<User>(`${this.baseUrl}/login`, loginData)
       .pipe(
         tap((response) => {
           if (response) {
-            ctx.patchState({ isAuthenticated: response });
+            ctx.patchState({ currentUser: response });
             this.router.navigate(['/']);
           } else {
             // TODO Информационное сообщение
@@ -63,8 +143,20 @@ export class DataState {
         }),
         catchError(() => {
           // Поскольку без бэкенда возникнет ошибка, проверяем аутентификацию на клиенте
-          if (this.validateLoginData(ctx.getState().users, loginData)) {
-            ctx.patchState({ isAuthenticated: true });
+          const users = ctx.getState().users;
+          const user = this.getUserByLoginData(users, loginData);
+          if (user) {
+            const foundUser = users
+              .find((i) => i.username === loginData.username);
+            if (foundUser) {
+              foundUser.isOnline = true;
+            }
+            ctx.patchState({ users, currentUser: foundUser });
+            const currentUserChannels = this.getCurrentUserChannels(ctx.getState());
+            ctx.patchState({ currentUserChannels });
+            localStorage.setItem('users', JSON.stringify(users));
+            localStorage.setItem('currentUser', JSON.stringify(foundUser));
+            localStorage.setItem('currentUserChannels', JSON.stringify(currentUserChannels));
             this.router.navigate(['/']);
           } else {
             // TODO Информационное сообщение
@@ -74,61 +166,137 @@ export class DataState {
       );
   }
 
+  /** Выход пользователя */
+  @Action(Logout)
+  logout(ctx: StateContext<DataStateModel>, { userUuid }: Logout) {
+    return this.http.post<boolean>(`${this.baseUrl}/logout`, userUuid)
+      .pipe(
+        tap((response) => {
+          if (response) {
+            ctx.patchState({ currentUser: null });
+            this.router.navigate(['/login']);
+          } else {
+            // TODO Информационное сообщение
+          }
+        }),
+        catchError(() => {
+          // Поскольку без бэкенда возникнет ошибка, выходим на клиенте
+          const users = ctx.getState().users;
+          const foundUser = users.find((i) => i.uuid === userUuid);
+          if (foundUser) {
+            foundUser.isOnline = false;
+          }
+          ctx.patchState({ users, currentUser: null });
+          localStorage.setItem('users', JSON.stringify(users));
+          localStorage.removeItem('currentUser');
+          localStorage.removeItem('currentUserChannels');
+          this.router.navigate(['/login']);
+          return throwError(() => new Error());
+        })
+      );
+  }
+
+  /** Добавление канала */
+  @Action(AddChannel)
+  addChannel(ctx: StateContext<DataStateModel>, { channelName }: AddChannel) {
+    const state = ctx.getState();
+    const userUuid = state.currentUser ? state.currentUser.uuid : '';
+    const addChannelData: AddChannelData = { userUuid, channelName };
+
+    return this.http.post<boolean>(`${this.baseUrl}/channels`, addChannelData)
+      .pipe(
+        tap((response) => {
+          if (response) {
+            ctx.dispatch(new GetChannels());
+            ctx.dispatch(new GetUserChannels());
+          } else {
+            // TODO Информационное сообщение
+          }
+        }),
+        catchError(() => {
+          // Поскольку без бэкенда возникнет ошибка, добавляем и сохраняем данные на клиенте
+          const channelUuid: string = uuid();
+
+          const channels = state.channels;
+          channels.push({
+            uuid: channelUuid,
+            name: channelName
+          } as Channel);
+
+          const userChannels = state.userChannels;
+          userChannels.push({
+            userUuid: state.currentUser ? state.currentUser.uuid : '',
+            channelUuid
+          } as UserChannel);
+
+          const currentUserChannels = [...state.currentUserChannels];
+          currentUserChannels.push({
+            uuid: channelUuid,
+            name: channelName
+          } as Channel);
+
+          ctx.patchState({channels, userChannels, currentUserChannels });
+          localStorage.setItem('channels', JSON.stringify(channels));
+          localStorage.setItem('userChannels', JSON.stringify(userChannels));
+          localStorage.setItem('currentUserChannels', JSON.stringify(currentUserChannels));
+
+          return throwError(() => new Error());
+        })
+      );
+  }
+
   /** Получение тестового списка пользователей */
   private getTestUsers(): User[] {
+    const usersString = localStorage.getItem('users');
+    if (usersString) {
+      const users = JSON.parse(usersString) as User[];
+      return users;
+    }
+
     const users: User[] = [];
     const userNames: string[] = ['Александр', 'Елена', 'Сергей', 'Ольга',
       'Дмитрий', 'Татьяна', 'Андрей', 'Мария', 'Владимир', 'Юлия'];
 
     for (let i = 0; i < userNames.length; i++) {
       users.push({
-        id: i,
+        uuid: uuid(),
         username: userNames[i],
         password: '111',
         isOnline: false
       } as User);
     }
 
+    localStorage.setItem('users', JSON.stringify(users));
     return users;
   }
 
-  /** Проверка на корректность введенных данных авторизации */
-  private validateLoginData(users: User[], loginData: LoginData): boolean {
+  /** Получение пользователя по введенным данным аутентификации */
+  private getUserByLoginData(users: User[], loginData: LoginData): User | null {
     for (const user of users) {
       if (user.username === loginData.username && user.password === loginData.password) {
-        return true;
+        return user;
       }
     }
-    return false;
+    return null;
   }
 
-  // /** Тестовое получение сгенерированного списка пользователей */
-  // private getGeneratedUsers(): User[] {
-  //   const users: User[] = [];
-  //   const maleNames: string[] = ['Александр', 'Алексей', 'Виктор', 'Сергей',
-  //     'Дмитрий', 'Михаил', 'Андрей', 'Владимир', 'Иван', 'Максим'];
-  //   const femaleNames: string[] = ['Анна', 'Елена', 'Ольга', 'Светлана',
-  //     'Юлия', 'Наталья', 'Татьяна', 'Мария', 'Анастасия', 'Ирина'];
-  //   const surnames: string[] = ['Иванов', 'Смирнов', 'Сидоров', 'Кузнецов',
-  //     'Попов', 'Васильев', 'Петров', 'Соколов', 'Михайлов', 'Волков'];
+  /** Получение списка каналов, с которым привязан текущий пользователь */
+  private getCurrentUserChannels(data: DataStateModel): Channel[] {
+    const channels: Channel[] = [];
 
-  //   for (let i = 0; i < 10; i++) {
-  //     const isMale: boolean = Math.random() > 0.5;
-  //     const name: string = isMale
-  //       ? maleNames[Math.floor(Math.random() * maleNames.length)]
-  //       : femaleNames[Math.floor(Math.random() * femaleNames.length)];
-  //     const surname: string = isMale
-  //       ? surnames[Math.floor(Math.random() * surnames.length)]
-  //       : `${surnames[Math.floor(Math.random() * surnames.length)]}а`;
+    const currentUserChannels = data.userChannels
+      .filter((i) => i.userUuid === data.currentUser?.uuid);
+    for (const channel of currentUserChannels) {
+      const foundChannelName = data.channels
+        .find((i) => i.uuid === channel.channelUuid);
+      if (foundChannelName) {
+        channels.push({
+          uuid: channel.channelUuid,
+          name: foundChannelName.name
+        } as Channel);
+      }
+    }
 
-  //     users.push({
-  //       id: uuid(),
-  //       username: `${name} ${surname}`,
-  //       password: '111',
-  //       isOnline: false
-  //     } as User);
-  //   }
-
-  //   return users;
-  // }
+    return channels;
+  }
 }
