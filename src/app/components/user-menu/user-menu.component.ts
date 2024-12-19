@@ -1,8 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
-import { Router } from '@angular/router';
-import { Store } from '@ngxs/store';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
-import { Logout } from '../../store/actions';
 import { User } from '../../models/models';
 
 @Component({
@@ -14,16 +11,16 @@ import { User } from '../../models/models';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UserMenuComponent {
+  @Output() logout = new EventEmitter<string>();
+  @Output() openSettings = new EventEmitter();
   @Input() user: User | null = null;
-
-  constructor(private store: Store, private router: Router) {}
 
   onLogoutClick(): void {
     const userUuid = this.user ? this.user.uuid : '';
-    this.store.dispatch(new Logout(userUuid));
+    this.logout.emit(userUuid);
   }
 
   onSettingsClick(): void {
-    this.router.navigate(['/user']);
+    this.openSettings.emit();
   }
 }

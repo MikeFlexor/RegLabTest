@@ -6,6 +6,8 @@ export interface DataStateModel {
   currentUserChannels: Channel[];
   selectedChannel: Channel | null;
   channelUsers: User[];
+  messages: Message[];
+  messagesToShow: MessageToShow[];
 }
 
 export interface User {
@@ -33,4 +35,16 @@ export interface UserChannel {
 export interface AddChannelData {
   userUuid: string;
   channelName: string;
+}
+
+export interface Message {
+  uuid: string;
+  fromUser: string;
+  channelUuid: string;
+  content: string;
+}
+
+export interface MessageToShow {
+  username: string;
+  text: string;
 }

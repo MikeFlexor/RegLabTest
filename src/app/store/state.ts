@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { Action, Selector, State, StateContext } from '@ngxs/store';
-import { AddChannelData, Channel, DataStateModel, LoginData, User, UserChannel } from "../models/models";
-import { AddChannel, AddUserToChannel, GetChannels, GetCurrentUser, GetUserChannels, GetUsers, Login, Logout, SetSelectedChannel } from "./actions";
+import { AddChannelData, Channel, DataStateModel, LoginData, Message, MessageToShow, User, UserChannel } from "../models/models";
+import { AddChannel, AddUserToChannel, GetChannels, GetCurrentUser, GetMessages, GetUserChannels, GetUsers, Login, Logout, SendMessage, SetSelectedChannel } from "./actions";
 import { HttpClient } from "@angular/common/http";
 import { catchError, tap, throwError } from "rxjs";
 import { v4 as uuid } from 'uuid';
@@ -14,7 +14,9 @@ const defaultState: DataStateModel = {
   userChannels: [],
   currentUserChannels: [],
   selectedChannel: null,
-  channelUsers: []
+  channelUsers: [],
+  messages: [],
+  messagesToShow: []
 };
 
 @State<DataStateModel>({
@@ -50,8 +52,14 @@ export class DataState {
     return state.channelUsers;
   }
 
+  @Selector()
+  static messagesToShow(state: DataStateModel) {
+    return state.messagesToShow;
+  }
+
   constructor(private http: HttpClient, private router: Router) {}
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Получение списка пользователей */
   @Action(GetUsers)
   getUsers(ctx: StateContext<DataStateModel>) {
@@ -68,6 +76,7 @@ export class DataState {
       );
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Получение текущего пользователя */
   @Action(GetCurrentUser)
   getCurrentUser(ctx: StateContext<DataStateModel>) {
@@ -88,6 +97,7 @@ export class DataState {
     }
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Получение общего списка каналов */
   @Action(GetChannels)
   getChannels(ctx: StateContext<DataStateModel>) {
@@ -111,6 +121,7 @@ export class DataState {
       );
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Получение списка каналов пользователей */
   @Action(GetUserChannels)
   getUserChannels(ctx: StateContext<DataStateModel>) {
@@ -134,6 +145,7 @@ export class DataState {
       );
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Аутентификация пользователя */
   @Action(Login)
   login(ctx: StateContext<DataStateModel>, { loginData }: Login) {
@@ -172,6 +184,7 @@ export class DataState {
       );
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Выход пользователя */
   @Action(Logout)
   logout(ctx: StateContext<DataStateModel>, { userUuid }: Logout) {
@@ -196,7 +209,8 @@ export class DataState {
             users,
             currentUser: null,
             selectedChannel: null,
-            channelUsers: []
+            channelUsers: [],
+            messagesToShow: []
           });
           localStorage.setItem('users', JSON.stringify(users));
           localStorage.removeItem('currentUser');
@@ -207,6 +221,7 @@ export class DataState {
       );
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Добавление канала */
   @Action(AddChannel)
   addChannel(ctx: StateContext<DataStateModel>, { channelName }: AddChannel) {
@@ -256,16 +271,23 @@ export class DataState {
       );
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Установка выбранного канала */
   @Action(SetSelectedChannel)
   setSelectedChannel(
     ctx: StateContext<DataStateModel>,
     { selectedChannel }: SetSelectedChannel
   ) {
-    const channelUsers = this.getChannelUsers(ctx.getState(), selectedChannel);
-    return ctx.patchState({ selectedChannel, channelUsers });
+    ctx.patchState({ selectedChannel });
+    const channelUsers = this.getChannelUsers(ctx.getState());
+    ctx.patchState({ channelUsers });
+    const messagesToShow = selectedChannel
+      ? this.getMessagesToShow(ctx.getState())
+      : [];
+    return ctx.patchState({ messagesToShow });
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Добавление пользователя в канал */
   @Action(AddUserToChannel)
   addUserToChannel(
@@ -281,12 +303,84 @@ export class DataState {
       return;
     }
 
-    userChannels.push({ userUuid, channelUuid } as UserChannel);
-    localStorage.setItem('userChannels', JSON.stringify(userChannels));
-    const channelUsers = this.getChannelUsers(state, state.selectedChannel);
-    return ctx.patchState({ userChannels, channelUsers });
+    const data: UserChannel = { userUuid, channelUuid };
+
+    return this.http.post<boolean>(`${this.baseUrl}/userChannels`, data)
+      .pipe(
+        tap((response) => {
+          if (response) {
+            ctx.dispatch(new GetUserChannels());
+          } else {
+            // TODO Информационное сообщение
+          }
+        }),
+        catchError(() => {
+          // Поскольку без бэкенда возникнет ошибка, добавляем и сохраняем пользователя на клиенте
+          userChannels.push({ userUuid, channelUuid } as UserChannel);
+          localStorage.setItem('userChannels', JSON.stringify(userChannels));
+          const channelUsers = this.getChannelUsers(state);
+          ctx.patchState({ userChannels, channelUsers });
+          return throwError(() => new Error());
+        })
+      );
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /** Получение списка сообщений */
+  @Action(GetMessages)
+  getMessages(ctx: StateContext<DataStateModel>) {
+    return this.http.get<Message[]>(`${this.baseUrl}/messages`)
+      .pipe(
+        tap((response) => {
+          ctx.patchState({ messages: response });
+        }),
+        catchError(() => {
+          // Поскольку без бэкенда возникнет ошибка, получаем тестовый список сообщений на клиенте
+          ctx.patchState({ messages: this.getTestMessages() });
+          return throwError(() => new Error());
+        })
+      );
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /** Отправка сообщения */
+  @Action(SendMessage)
+  sendMessage(ctx: StateContext<DataStateModel>, { messageText }: SendMessage) {
+    const state = ctx.getState();
+
+    if (!state.currentUser || !state.selectedChannel) {
+      return;
+    }
+
+    const message: Message = {
+      uuid: uuid(),
+      fromUser: state.currentUser.uuid,
+      channelUuid: state.selectedChannel.uuid,
+      content: messageText
+    };
+
+    return this.http.post<boolean>(`${this.baseUrl}/messages`, message)
+      .pipe(
+        tap((response) => {
+          if (response) {
+            ctx.dispatch(new GetMessages());
+          } else {
+            // TODO Информационное сообщение
+          }
+        }),
+        catchError(() => {
+          // Поскольку без бэкенда возникнет ошибка, добавляем и сохраняем сообщение на клиенте
+          const messages = state.messages;
+          messages.push(message);
+          localStorage.setItem('messages', JSON.stringify(messages));
+          const messagesToShow = this.getMessagesToShow(state);
+          ctx.patchState({ messages, messagesToShow });
+          return throwError(() => new Error());
+        })
+      );
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Получение тестового списка пользователей */
   private getTestUsers(): User[] {
     const usersString = localStorage.getItem('users');
@@ -312,6 +406,21 @@ export class DataState {
     return users;
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /** Получение тестового списка сообщений */
+  private getTestMessages(): Message[] {
+    const messagesString = localStorage.getItem('messages');
+    if (messagesString) {
+      const messages = JSON.parse(messagesString) as Message[];
+      return messages;
+    }
+
+    const messages: Message[] = [];
+    localStorage.setItem('messages', JSON.stringify(messages));
+    return messages;
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Получение пользователя по введенным данным аутентификации */
   private getUserByLoginData(users: User[], loginData: LoginData): User | null {
     for (const user of users) {
@@ -322,6 +431,7 @@ export class DataState {
     return null;
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Получение списка каналов, с которым привязан текущий пользователь */
   private getCurrentUserChannels(data: DataStateModel): Channel[] {
     const channels: Channel[] = [];
@@ -342,15 +452,12 @@ export class DataState {
     return channels;
   }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Получение списка пользователей, привязанных к каналу */
-  private getChannelUsers(data: DataStateModel, selectedChannel: Channel | null): User[] {
-    if (!selectedChannel) {
-      return [];
-    }
-
+  private getChannelUsers(data: DataStateModel): User[] {
     const users: User[] = [];
     const userChannels = data.userChannels
-      .filter((i) => i.channelUuid === selectedChannel.uuid);
+      .filter((i) => i.channelUuid === data.selectedChannel?.uuid);
 
     for (const channel of userChannels) {
       const foundUser = data.users.find((i) => i.uuid === channel.userUuid);
@@ -360,5 +467,28 @@ export class DataState {
     }
 
     return users;
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /** Получение списка отображаемых в чате сообщений, в зависимости от выбранного канала */
+  private getMessagesToShow(data: DataStateModel): MessageToShow[] {
+    if (!data.currentUser || !data.selectedChannel) {
+      return [];
+    }
+
+    const messagesToShow: MessageToShow[] = [];
+    const messages = data.messages
+      .filter((i) => i.channelUuid === data.selectedChannel?.uuid);
+    for (const message of messages) {
+      const foundUser = data.users.find((i) => i.uuid === message.fromUser);
+      if (foundUser) {
+        messagesToShow.push({
+          username: foundUser.username,
+          text: message.content
+        } as MessageToShow);
+      }
+    }
+
+    return messagesToShow;
   }
 }

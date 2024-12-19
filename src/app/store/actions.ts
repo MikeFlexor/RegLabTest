@@ -45,3 +45,12 @@ export class AddUserToChannel {
     public readonly channelUuid: string
   ) {}
 }
+
+export class GetMessages {
+  static readonly type = `[${stateName}] GetMessages`;
+}
+
+export class SendMessage {
+  static readonly type = `[${stateName}] SendMessage`;
+  constructor(public readonly messageText: string) {}
+}

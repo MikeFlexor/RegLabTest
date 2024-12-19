@@ -3,6 +3,49 @@
   flex-direction: column;
   width: 100%;
   height: 100%;
-  border: 1px solid #aaaaaa;
-  border-radius: 8px;
+  gap: 8px;
+
+  .channel-name {
+    height: 39px;
+    font-size: 20px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .scroll-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow-y: scroll;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+  }
+
+  .message {
+    display: flex;
+    flex-direction: row;
+    padding: 4px;
+    gap: 8px;
+
+    .username {
+      font-weight: bold;
+    }
+  }
+
+  .message-input-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 8px;
+
+    input {
+      width: 100%;
+    }
+
+    p-button {
+      width: 50px;
+      height: 100%;
+    }
+  }
 }

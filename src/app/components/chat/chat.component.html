@@ -1,1 +1,26 @@
-<p>chat works!</p>,
+<span class="channel-name">Канал: {{ channelName }}</span>
+
+<div class="scroll-panel">
+  <div *ngFor="let message of messages" class="message">
+    <span class="username">{{ message.username }}</span>
+    <span>{{ message.text }}</span>
+  </div>
+</div>
+
+<div class="message-input-container">
+  <input
+    [(ngModel)]="messageText"
+    placeholder="Введите сообщение"
+    pInputText
+    type="text"
+  />
+
+  <p-button
+    [disabled]="!messageText.length"
+    (onClick)="onSendClick()"
+    class="icon-button"
+    icon="pi pi-send"
+    title="Отправить сообщение"
+    severity="secondary"
+  />
+</div>

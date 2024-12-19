@@ -6,8 +6,10 @@ import { ChatComponent } from '../chat/chat.component';
 import { Store } from '@ngxs/store';
 import { DataState } from '../../store/state';
 import { Observable } from 'rxjs';
-import { Channel, User } from '../../models/models';
+import { Channel, MessageToShow, User } from '../../models/models';
 import { CommonModule } from '@angular/common';
+import { Logout, SendMessage } from '../../store/actions';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-main',
@@ -27,8 +29,21 @@ export class MainComponent {
   channelUsers$: Observable<User[]> = this.store.select(DataState.channelUsers);
   currentUser$: Observable<User | null> = this.store.select(DataState.currentUser);
   currentUserChannels$: Observable<Channel[]> = this.store.select(DataState.currentUserChannels);
+  messagesToShow$: Observable<MessageToShow[]> = this.store.select(DataState.messagesToShow);
   selectedChannel$: Observable<Channel | null> = this.store.select(DataState.selectedChannel);
   users$: Observable<User[]> = this.store.select(DataState.users);
 
-  constructor(private store: Store) {}
+  constructor(private store: Store, private router: Router) {}
+
+  onLogout(userUuid: string): void {
+    this.store.dispatch(new Logout(userUuid));
+  }
+
+  onOpenSettings(): void {
+    this.router.navigate(['/user']);
+  }
+
+  onSendMessage(messageText: string): void {
+    this.store.dispatch(new SendMessage(messageText));
+  }
 }
