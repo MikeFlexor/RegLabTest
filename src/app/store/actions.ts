@@ -1,4 +1,4 @@
-import { LoginData } from "../models/models";
+import { Channel, LoginData } from "../models/models";
 
 const stateName = 'Data';
 
@@ -31,4 +31,17 @@ export class Logout {
 export class AddChannel {
   static readonly type = `[${stateName}] AddChannel`;
   constructor(public readonly channelName: string) {}
+}
+
+export class SetSelectedChannel {
+  static readonly type = `[${stateName}] SetSelectedChannel`;
+  constructor(public readonly selectedChannel: Channel | null) {}
+}
+
+export class AddUserToChannel {
+  static readonly type = `[${stateName}] AddUserToChannel`;
+  constructor(
+    public readonly userUuid: string,
+    public readonly channelUuid: string
+  ) {}
 }

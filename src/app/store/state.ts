@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { Action, Selector, State, StateContext } from '@ngxs/store';
 import { AddChannelData, Channel, DataStateModel, LoginData, User, UserChannel } from "../models/models";
-import { AddChannel, GetChannels, GetCurrentUser, GetUserChannels, GetUsers, Login, Logout } from "./actions";
+import { AddChannel, AddUserToChannel, GetChannels, GetCurrentUser, GetUserChannels, GetUsers, Login, Logout, SetSelectedChannel } from "./actions";
 import { HttpClient } from "@angular/common/http";
 import { catchError, tap, throwError } from "rxjs";
 import { v4 as uuid } from 'uuid';
@@ -13,7 +13,8 @@ const defaultState: DataStateModel = {
   channels: [],
   userChannels: [],
   currentUserChannels: [],
-  selectedChannel: null
+  selectedChannel: null,
+  channelUsers: []
 };
 
 @State<DataStateModel>({
@@ -42,6 +43,11 @@ export class DataState {
   @Selector()
   static selectedChannel(state: DataStateModel) {
     return state.selectedChannel;
+  }
+
+  @Selector()
+  static channelUsers(state: DataStateModel) {
+    return state.channelUsers;
   }
 
   constructor(private http: HttpClient, private router: Router) {}
@@ -186,7 +192,12 @@ export class DataState {
           if (foundUser) {
             foundUser.isOnline = false;
           }
-          ctx.patchState({ users, currentUser: null });
+          ctx.patchState({
+            users,
+            currentUser: null,
+            selectedChannel: null,
+            channelUsers: []
+          });
           localStorage.setItem('users', JSON.stringify(users));
           localStorage.removeItem('currentUser');
           localStorage.removeItem('currentUserChannels');
@@ -235,7 +246,7 @@ export class DataState {
             name: channelName
           } as Channel);
 
-          ctx.patchState({channels, userChannels, currentUserChannels });
+          ctx.patchState({ channels, userChannels, currentUserChannels });
           localStorage.setItem('channels', JSON.stringify(channels));
           localStorage.setItem('userChannels', JSON.stringify(userChannels));
           localStorage.setItem('currentUserChannels', JSON.stringify(currentUserChannels));
@@ -243,6 +254,37 @@ export class DataState {
           return throwError(() => new Error());
         })
       );
+  }
+
+  /** Установка выбранного канала */
+  @Action(SetSelectedChannel)
+  setSelectedChannel(
+    ctx: StateContext<DataStateModel>,
+    { selectedChannel }: SetSelectedChannel
+  ) {
+    const channelUsers = this.getChannelUsers(ctx.getState(), selectedChannel);
+    return ctx.patchState({ selectedChannel, channelUsers });
+  }
+
+  /** Добавление пользователя в канал */
+  @Action(AddUserToChannel)
+  addUserToChannel(
+    ctx: StateContext<DataStateModel>,
+    { userUuid, channelUuid }: AddUserToChannel
+  ) {
+    const state = ctx.getState();
+    const userChannels = state.userChannels;
+    const existUserChannel = userChannels
+      .find((i) => i.userUuid === userUuid && i.channelUuid === channelUuid);
+
+    if (existUserChannel) {
+      return;
+    }
+
+    userChannels.push({ userUuid, channelUuid } as UserChannel);
+    localStorage.setItem('userChannels', JSON.stringify(userChannels));
+    const channelUsers = this.getChannelUsers(state, state.selectedChannel);
+    return ctx.patchState({ userChannels, channelUsers });
   }
 
   /** Получение тестового списка пользователей */
@@ -283,9 +325,9 @@ export class DataState {
   /** Получение списка каналов, с которым привязан текущий пользователь */
   private getCurrentUserChannels(data: DataStateModel): Channel[] {
     const channels: Channel[] = [];
-
     const currentUserChannels = data.userChannels
       .filter((i) => i.userUuid === data.currentUser?.uuid);
+
     for (const channel of currentUserChannels) {
       const foundChannelName = data.channels
         .find((i) => i.uuid === channel.channelUuid);
@@ -298,5 +340,25 @@ export class DataState {
     }
 
     return channels;
+  }
+
+  /** Получение списка пользователей, привязанных к каналу */
+  private getChannelUsers(data: DataStateModel, selectedChannel: Channel | null): User[] {
+    if (!selectedChannel) {
+      return [];
+    }
+
+    const users: User[] = [];
+    const userChannels = data.userChannels
+      .filter((i) => i.channelUuid === selectedChannel.uuid);
+
+    for (const channel of userChannels) {
+      const foundUser = data.users.find((i) => i.uuid === channel.userUuid);
+      if (foundUser) {
+        users.push(foundUser);
+      }
+    }
+
+    return users;
   }
 }

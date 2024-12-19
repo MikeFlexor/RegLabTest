@@ -1,0 +1,13 @@
+<p-dropdown
+  [(ngModel)]="selectedUser"
+  [appendTo]="'body'"
+  [options]="users"
+  optionLabel="username"
+></p-dropdown>
+
+<p-button
+  [disabled]="!selectedUser"
+  (onClick)="onAddClick()"
+  label="Добавить"
+  severity="info"
+/>

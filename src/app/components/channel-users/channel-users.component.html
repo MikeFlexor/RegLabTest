@@ -1,1 +1,28 @@
-<p>channel-users works!</p>,
+<div class="users-header-container">
+  <span>Участники канала</span>
+
+  <p-button
+    [disabled]="!selectedChannel"
+    (onClick)="onAddClick()"
+    class="icon-button"
+    icon="pi pi-plus"
+    title="Добавить пользователя в канал"
+    severity="secondary"
+  />
+</div>
+
+<p-listbox
+  [listStyle]="{'min-height': '100%'}" 
+  [options]="channelUsers"
+  optionLabel="username"
+>
+  <ng-template let-user pTemplate="item">
+    <div class="user-item">
+      <div
+        [style.background-color]="user.isOnline ? '#00cc00' : '#ee0000'"
+        class="online-indicator"
+      ></div>
+      <div>{{ user.username }}</div>
+    </div>
+  </ng-template>
+</p-listbox>

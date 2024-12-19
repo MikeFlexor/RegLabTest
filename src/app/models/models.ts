@@ -5,6 +5,7 @@ export interface DataStateModel {
   userChannels: UserChannel[];
   currentUserChannels: Channel[];
   selectedChannel: Channel | null;
+  channelUsers: User[];
 }
 
 export interface User {

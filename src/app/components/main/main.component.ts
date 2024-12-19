@@ -24,9 +24,11 @@ import { CommonModule } from '@angular/common';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MainComponent {
+  channelUsers$: Observable<User[]> = this.store.select(DataState.channelUsers);
   currentUser$: Observable<User | null> = this.store.select(DataState.currentUser);
   currentUserChannels$: Observable<Channel[]> = this.store.select(DataState.currentUserChannels);
   selectedChannel$: Observable<Channel | null> = this.store.select(DataState.selectedChannel);
+  users$: Observable<User[]> = this.store.select(DataState.users);
 
   constructor(private store: Store) {}
 }

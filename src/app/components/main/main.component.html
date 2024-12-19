@@ -5,7 +5,11 @@
       [selectedChannel]="selectedChannel$ | async"
       [userChannels]="(currentUserChannels$ | async) || []"
     ></app-channels-list>
-    <app-channel-users></app-channel-users>
+    <app-channel-users
+      [channelUsers]="(channelUsers$ | async) || []"
+      [selectedChannel]="selectedChannel$ | async"
+      [users]="(users$ | async) || []"
+    ></app-channel-users>
   </div>
 
   <div class="chat">
