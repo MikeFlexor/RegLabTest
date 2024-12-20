@@ -24,12 +24,15 @@
 
   .message {
     display: flex;
-    flex-direction: row;
-    padding: 4px 8px;
-    gap: 8px;
+    flex-direction: column;
 
     .username {
       font-weight: bold;
+      padding: 4px 8px 4px 8px;
+    }
+
+    .text {
+      padding: 2px 8px 2px 24px;
     }
   }
 

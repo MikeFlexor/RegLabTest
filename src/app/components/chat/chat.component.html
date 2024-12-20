@@ -2,8 +2,10 @@
 
 <div class="scroll-panel">
   <div *ngFor="let message of messages" class="message">
-    <span class="username">{{ message.username }}</span>
-    <span>{{ message.text }}</span>
+    <span *ngIf="message.showUsername" class="username">
+      {{ message.username }}
+    </span>
+    <span class="text">{{ message.text }}</span>
   </div>
 </div>
 

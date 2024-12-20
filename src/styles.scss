@@ -33,6 +33,21 @@ p-listbox {
     width: 100%;
     height: 100%;
   }
+
+  .p-highlight {
+    background: #9da9b9;
+    color: #ffffff;
+    font-weight: bold;
+  }
+
+  &.users-listbox {
+    .p-listbox-item {
+      background: none;
+      color: #4b5563;
+      font-weight: 500;
+      cursor: default;
+    }
+  }
 }
 
 p-dropdown {

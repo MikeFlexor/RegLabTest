@@ -7,6 +7,7 @@ import { catchError, tap, throwError } from "rxjs";
 import { v4 as uuid } from 'uuid';
 import { Router } from "@angular/router";
 import { MessageService } from "primeng/api";
+import { TestData } from "./test-data";
 
 const defaultState: DataStateModel = {
   users: [],
@@ -75,7 +76,7 @@ export class DataState {
         }),
         catchError(() => {
           // Поскольку без бэкенда возникнет ошибка, получаем тестовый список пользователей на клиенте
-          ctx.patchState({ users: this.getTestUsers() });
+          ctx.patchState({ users: TestData.getTestUsers() });
           return throwError(() => new Error());
         })
       );
@@ -112,15 +113,8 @@ export class DataState {
           ctx.patchState({ channels: response });
         }),
         catchError(() => {
-          // Поскольку без бэкенда возникнет ошибка, получаем общий список каналов из локалстора
-          const channelsString = localStorage.getItem('channels');
-          if (channelsString) {
-            const channels = JSON.parse(channelsString) as Channel[];
-            ctx.patchState({ channels });
-          } else {
-            localStorage.setItem('channels', JSON.stringify([]));
-            ctx.patchState({ channels: [] });
-          }
+          // Поскольку без бэкенда возникнет ошибка, получаем тестовый список каналов на клиенте
+          ctx.patchState({ channels: TestData.getTestChannels() });
           return throwError(() => new Error());
         })
       );
@@ -136,15 +130,8 @@ export class DataState {
           ctx.patchState({ userChannels: response });
         }),
         catchError(() => {
-          // Поскольку без бэкенда возникнет ошибка, получаем список каналов пользователей из локалстора
-          const userChannelsString = localStorage.getItem('userChannels');
-          if (userChannelsString) {
-            const userChannels = JSON.parse(userChannelsString) as UserChannel[];
-            ctx.patchState({ userChannels });
-          } else {
-            localStorage.setItem('userChannels', JSON.stringify([]));
-            ctx.patchState({ userChannels: [] });
-          }
+          // Поскольку без бэкенда возникнет ошибка, получаем тестовый список каналов пользователей из на клиенте
+          ctx.patchState({ userChannels: TestData.getTestUserChannels() });
           return throwError(() => new Error());
         })
       );
@@ -348,7 +335,7 @@ export class DataState {
         }),
         catchError(() => {
           // Поскольку без бэкенда возникнет ошибка, получаем тестовый список сообщений на клиенте
-          ctx.patchState({ messages: this.getTestMessages() });
+          ctx.patchState({ messages: TestData.getTestMessages() });
           return throwError(() => new Error());
         })
       );
@@ -430,46 +417,6 @@ export class DataState {
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  /** Получение тестового списка пользователей */
-  private getTestUsers(): User[] {
-    const usersString = localStorage.getItem('users');
-    if (usersString) {
-      const users = JSON.parse(usersString) as User[];
-      return users;
-    }
-
-    const users: User[] = [];
-    const userNames: string[] = ['Александр', 'Елена', 'Сергей', 'Ольга',
-      'Дмитрий', 'Татьяна', 'Андрей', 'Мария', 'Владимир', 'Юлия'];
-
-    for (let i = 0; i < userNames.length; i++) {
-      users.push({
-        uuid: uuid(),
-        username: userNames[i],
-        password: '111',
-        isOnline: false
-      } as User);
-    }
-
-    localStorage.setItem('users', JSON.stringify(users));
-    return users;
-  }
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  /** Получение тестового списка сообщений */
-  private getTestMessages(): Message[] {
-    const messagesString = localStorage.getItem('messages');
-    if (messagesString) {
-      const messages = JSON.parse(messagesString) as Message[];
-      return messages;
-    }
-
-    const messages: Message[] = [];
-    localStorage.setItem('messages', JSON.stringify(messages));
-    return messages;
-  }
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Получение пользователя по введенным данным аутентификации */
   private getUserByLoginData(users: User[], loginData: LoginData): User | null {
     for (const user of users) {
@@ -528,12 +475,24 @@ export class DataState {
     const messagesToShow: MessageToShow[] = [];
     const messages = data.messages
       .filter((i) => i.channelUuid === data.selectedChannel?.uuid);
+    let previousUsername: string = '';
+
     for (const message of messages) {
       const foundUser = data.users.find((i) => i.uuid === message.fromUser);
       if (foundUser) {
+        let showUsername: boolean = false;
+
+        if (foundUser.username !== previousUsername) {
+          showUsername = true;
+          previousUsername = foundUser.username;
+        } else {
+          showUsername = false;
+        }
+
         messagesToShow.push({
           username: foundUser.username,
-          text: message.content
+          text: message.content,
+          showUsername
         } as MessageToShow);
       }
     }

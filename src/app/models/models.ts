@@ -47,4 +47,5 @@ export interface Message {
 export interface MessageToShow {
   username: string;
   text: string;
+  showUsername: boolean;
 }
