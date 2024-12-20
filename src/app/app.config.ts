@@ -7,6 +7,7 @@ import { DataState } from './store/state';
 import { AuthenticationGuard } from './auth/authentication.guard';
 import { DialogService } from 'primeng/dynamicdialog';
 import { provideAnimations } from '@angular/platform-browser/animations';
+import { MessageService } from 'primeng/api';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -16,6 +17,7 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(),
     provideAnimations(),
     AuthenticationGuard,
-    DialogService
+    DialogService,
+    MessageService
   ]
 };

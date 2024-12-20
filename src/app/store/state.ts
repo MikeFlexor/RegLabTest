@@ -6,6 +6,7 @@ import { HttpClient } from "@angular/common/http";
 import { catchError, tap, throwError } from "rxjs";
 import { v4 as uuid } from 'uuid';
 import { Router } from "@angular/router";
+import { MessageService } from "primeng/api";
 
 const defaultState: DataStateModel = {
   users: [],
@@ -57,7 +58,11 @@ export class DataState {
     return state.messagesToShow;
   }
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+    private messageService: MessageService
+  ) {}
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Получение списка пользователей */
@@ -156,7 +161,7 @@ export class DataState {
             ctx.patchState({ currentUser: response });
             this.router.navigate(['/']);
           } else {
-            // TODO Информационное сообщение
+            this.showErrorMessage(`Некорректно введено имя или пароль`);
           }
         }),
         catchError(() => {
@@ -168,16 +173,17 @@ export class DataState {
               .find((i) => i.username === loginData.username);
             if (foundUser) {
               foundUser.isOnline = true;
+              ctx.patchState({ users, currentUser: foundUser });
+              const currentUserChannels = this.getCurrentUserChannels(ctx.getState());
+              ctx.patchState({ currentUserChannels });
+              localStorage.setItem('users', JSON.stringify(users));
+              localStorage.setItem('currentUser', JSON.stringify(foundUser));
+              localStorage.setItem('currentUserChannels', JSON.stringify(currentUserChannels));
+              this.router.navigate(['/']);
+              this.showSuccessMessage(`Вход пользователем "${foundUser.username}"`);
             }
-            ctx.patchState({ users, currentUser: foundUser });
-            const currentUserChannels = this.getCurrentUserChannels(ctx.getState());
-            ctx.patchState({ currentUserChannels });
-            localStorage.setItem('users', JSON.stringify(users));
-            localStorage.setItem('currentUser', JSON.stringify(foundUser));
-            localStorage.setItem('currentUserChannels', JSON.stringify(currentUserChannels));
-            this.router.navigate(['/']);
           } else {
-            // TODO Информационное сообщение
+            this.showErrorMessage(`Некорректно введено имя или пароль`);
           }
           return throwError(() => new Error());
         })
@@ -195,7 +201,7 @@ export class DataState {
             ctx.patchState({ currentUser: null });
             this.router.navigate(['/login']);
           } else {
-            // TODO Информационное сообщение
+            this.showErrorMessage(`Ошибка выхода из системы`);
           }
         }),
         catchError(() => {
@@ -204,18 +210,18 @@ export class DataState {
           const foundUser = users.find((i) => i.uuid === userUuid);
           if (foundUser) {
             foundUser.isOnline = false;
+            ctx.patchState({
+              users,
+              currentUser: null,
+              selectedChannel: null,
+              channelUsers: [],
+              messagesToShow: []
+            });
+            localStorage.setItem('users', JSON.stringify(users));
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('currentUserChannels');
+            this.router.navigate(['/login']);
           }
-          ctx.patchState({
-            users,
-            currentUser: null,
-            selectedChannel: null,
-            channelUsers: [],
-            messagesToShow: []
-          });
-          localStorage.setItem('users', JSON.stringify(users));
-          localStorage.removeItem('currentUser');
-          localStorage.removeItem('currentUserChannels');
-          this.router.navigate(['/login']);
           return throwError(() => new Error());
         })
       );
@@ -236,7 +242,7 @@ export class DataState {
             ctx.dispatch(new GetChannels());
             ctx.dispatch(new GetUserChannels());
           } else {
-            // TODO Информационное сообщение
+            this.showErrorMessage(`Ошибка добавления канала`);
           }
         }),
         catchError(() => {
@@ -265,6 +271,8 @@ export class DataState {
           localStorage.setItem('channels', JSON.stringify(channels));
           localStorage.setItem('userChannels', JSON.stringify(userChannels));
           localStorage.setItem('currentUserChannels', JSON.stringify(currentUserChannels));
+
+          this.showSuccessMessage(`Добавлен новый канал "${channelName}"`);
 
           return throwError(() => new Error());
         })
@@ -300,6 +308,7 @@ export class DataState {
       .find((i) => i.userUuid === userUuid && i.channelUuid === channelUuid);
 
     if (existUserChannel) {
+      this.showInfoMessage(`Пользователь уже есть в канале`);
       return;
     }
 
@@ -311,7 +320,7 @@ export class DataState {
           if (response) {
             ctx.dispatch(new GetUserChannels());
           } else {
-            // TODO Информационное сообщение
+            this.showErrorMessage(`Ошибка добавления пользователя в канала`);
           }
         }),
         catchError(() => {
@@ -320,6 +329,9 @@ export class DataState {
           localStorage.setItem('userChannels', JSON.stringify(userChannels));
           const channelUsers = this.getChannelUsers(state);
           ctx.patchState({ userChannels, channelUsers });
+          const userName = channelUsers.find((i) => i.uuid === userUuid)?.username;
+          const channelName = state.selectedChannel?.name;
+          this.showSuccessMessage(`Пользователь "${userName}" добавлен в канал "${channelName}"`);
           return throwError(() => new Error());
         })
       );
@@ -365,7 +377,7 @@ export class DataState {
           if (response) {
             ctx.dispatch(new GetMessages());
           } else {
-            // TODO Информационное сообщение
+            this.showErrorMessage(`Ошибка отправки сообщения`);
           }
         }),
         catchError(() => {
@@ -383,13 +395,14 @@ export class DataState {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   /** Переименование пользователя */
   @Action(RenameUser)
-  renameUser(ctx: StateContext<DataStateModel>, { username }: RenameUser) {
+  renameUser(ctx: StateContext<DataStateModel>, { userName }: RenameUser) {
     const state = ctx.getState();
     const user = state.currentUser;
     if (!user) {
       return;
     }
-    user.username = username;
+    const currentUserName = user.username;
+    user.username = userName;
 
     return this.http.put<boolean>(`${this.baseUrl}/users`, user)
       .pipe(
@@ -397,7 +410,7 @@ export class DataState {
           if (response) {
             ctx.dispatch(new GetUsers());
           } else {
-            // TODO Информационное сообщение
+            this.showErrorMessage(`Ошибка переименования пользователя`);
           }
         }),
         catchError(() => {
@@ -405,11 +418,12 @@ export class DataState {
           const users = state.users;
           const foundUser = users.find((i) => i.uuid === user.uuid);
           if (foundUser) {
-            foundUser.username = username;
+            foundUser.username = userName;
           }
           localStorage.setItem('currentUser', JSON.stringify(user));
           localStorage.setItem('users', JSON.stringify(users));
           ctx.patchState({ users, currentUser: user });
+          this.showSuccessMessage(`Пользователь "${currentUserName}" переименован в "${userName}"`);
           return throwError(() => new Error());
         })
       );
@@ -525,5 +539,32 @@ export class DataState {
     }
 
     return messagesToShow;
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /** Отображение сообщения успеха */
+  private showSuccessMessage(message: string): void {
+    this.messageService.add({
+      severity: 'success',
+      detail: message
+    });
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /** Отображение сообщения ошибки */
+  private showErrorMessage(message: string): void {
+    this.messageService.add({
+      severity: 'error',
+      detail: message
+    });
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /** Отображение информационного сообщения */
+  private showInfoMessage(message: string): void {
+    this.messageService.add({
+      severity: 'info',
+      detail: message
+    });
   }
 }

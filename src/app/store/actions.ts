@@ -57,5 +57,5 @@ export class SendMessage {
 
 export class RenameUser {
   static readonly type = `[${stateName}] RenameUser`;
-  constructor(public readonly username: string) {}
+  constructor(public readonly userName: string) {}
 }
