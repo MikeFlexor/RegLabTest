@@ -25,7 +25,9 @@ export class ChatComponent {
   @Output() sendMessage = new EventEmitter<string>();
 
   onSendClick(): void {
-    this.sendMessage.emit(this.messageText);
-    this.messageText = '';
+    if (this.messageText.length) {
+      this.sendMessage.emit(this.messageText);
+      this.messageText = '';
+    }
   }
 }

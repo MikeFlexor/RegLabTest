@@ -10,6 +10,8 @@
 <div class="message-input-container">
   <input
     [(ngModel)]="messageText"
+    [disabled]="!channelName.length"
+    (keydown.Enter)="onSendClick()"
     placeholder="Введите сообщение"
     pInputText
     type="text"

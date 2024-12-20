@@ -1,1 +1,25 @@
-<p>user works!</p>,
+<span class="username">
+  Пользователь: {{ (currentUser$ | async)?.username }}
+</span>
+
+<input
+  #usernameInput
+  [ngModel]="(currentUser$ | async)?.username"
+  (ngModelChange)="newUsername = usernameInput.value"
+  placeholder="Введите новое имя пользователя"
+  pInputText
+  type="text"
+/>
+
+<p-button
+  [disabled]="!usernameInput.value.length"
+  (onClick)="onRenameClick()"
+  label="Переименовать пользователя"
+  severity="secondary"
+/>
+
+<p-button
+  (onClick)="onGoToChatClick()"
+  label="Вернуться в чат"
+  severity="secondary"
+/>

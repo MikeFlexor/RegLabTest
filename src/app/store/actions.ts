@@ -54,3 +54,8 @@ export class SendMessage {
   static readonly type = `[${stateName}] SendMessage`;
   constructor(public readonly messageText: string) {}
 }
+
+export class RenameUser {
+  static readonly type = `[${stateName}] RenameUser`;
+  constructor(public readonly username: string) {}
+}

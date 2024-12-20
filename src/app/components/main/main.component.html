@@ -9,12 +9,14 @@
     <app-channels-list
       [selectedChannel]="selectedChannel$ | async"
       [userChannels]="(currentUserChannels$ | async) || []"
+      (addChannel)="onOpenAddChannelWindow()"
+      (selectChannel)="onSelectChannel($event)"
     ></app-channels-list>
 
     <app-channel-users
       [channelUsers]="(channelUsers$ | async) || []"
       [selectedChannel]="selectedChannel$ | async"
-      [users]="(users$ | async) || []"
+      (addUser)="onOpenAddUserWindow()"
     ></app-channel-users>
   </div>
 

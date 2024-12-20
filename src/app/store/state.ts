@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { Action, Selector, State, StateContext } from '@ngxs/store';
 import { AddChannelData, Channel, DataStateModel, LoginData, Message, MessageToShow, User, UserChannel } from "../models/models";
-import { AddChannel, AddUserToChannel, GetChannels, GetCurrentUser, GetMessages, GetUserChannels, GetUsers, Login, Logout, SendMessage, SetSelectedChannel } from "./actions";
+import { AddChannel, AddUserToChannel, GetChannels, GetCurrentUser, GetMessages, GetUserChannels, GetUsers, Login, Logout, RenameUser, SendMessage, SetSelectedChannel } from "./actions";
 import { HttpClient } from "@angular/common/http";
 import { catchError, tap, throwError } from "rxjs";
 import { v4 as uuid } from 'uuid';
@@ -375,6 +375,41 @@ export class DataState {
           localStorage.setItem('messages', JSON.stringify(messages));
           const messagesToShow = this.getMessagesToShow(state);
           ctx.patchState({ messages, messagesToShow });
+          return throwError(() => new Error());
+        })
+      );
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /** Переименование пользователя */
+  @Action(RenameUser)
+  renameUser(ctx: StateContext<DataStateModel>, { username }: RenameUser) {
+    const state = ctx.getState();
+    const user = state.currentUser;
+    if (!user) {
+      return;
+    }
+    user.username = username;
+
+    return this.http.put<boolean>(`${this.baseUrl}/users`, user)
+      .pipe(
+        tap((response) => {
+          if (response) {
+            ctx.dispatch(new GetUsers());
+          } else {
+            // TODO Информационное сообщение
+          }
+        }),
+        catchError(() => {
+          // Поскольку без бэкенда возникнет ошибка, переименовываем пользователя на клиенте
+          const users = state.users;
+          const foundUser = users.find((i) => i.uuid === user.uuid);
+          if (foundUser) {
+            foundUser.username = username;
+          }
+          localStorage.setItem('currentUser', JSON.stringify(user));
+          localStorage.setItem('users', JSON.stringify(users));
+          ctx.patchState({ users, currentUser: user });
           return throwError(() => new Error());
         })
       );
